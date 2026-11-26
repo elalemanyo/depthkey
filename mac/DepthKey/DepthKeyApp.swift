@@ -27,7 +27,7 @@ struct EffectMenu: View {
     @ObservedObject var model: AppModel
     @ObservedObject var settings: Settings
 
-    private static let keys: [BackgroundMode: KeyEquivalent] = [.blur: "1", .color: "2", .image: "3", .depth: "4", .off: "0"]
+    private static let keys: [BackgroundMode: KeyEquivalent] = [.blur: "1", .color: "2", .image: "3", .video: "4", .depth: "5", .off: "0"]
 
     var body: some View {
         ForEach(BackgroundMode.allCases) { mode in

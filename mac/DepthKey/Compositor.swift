@@ -27,15 +27,17 @@ enum Compositor {
             .samplingLinear().transformed(by: toOutput)
             .clampedToExtent().applyingGaussianBlur(sigma: 1.5 * size.width / 1280).cropped(to: rect)
 
+        let blurred = { camera.clampedToExtent().applyingGaussianBlur(sigma: p.blur * size.width / 1280).cropped(to: rect) }
         let background: CIImage
         switch p.mode {
         case .blur:
-            background = camera.clampedToExtent().applyingGaussianBlur(sigma: p.blur * size.width / 1280).cropped(to: rect)
+            background = blurred()
         case .color:
             background = CIImage(color: CIColor(red: p.color.r, green: p.color.g, blue: p.color.b,
                                                 colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)!).cropped(to: rect)
-        case .image:
-            background = p.image.map { aspectFill($0, rect) } ?? CIImage(color: .black).cropped(to: rect)
+        case .image, .video:
+            // Blur until there is a picture (none chosen, or the video still loading).
+            background = p.image.map { aspectFill($0, rect) } ?? blurred()
         case .depth, .off:
             return camera
         }

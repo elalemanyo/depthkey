@@ -2,13 +2,14 @@ import CoreImage
 import Foundation
 
 enum BackgroundMode: String, CaseIterable, Identifiable {
-    case blur, color, image, depth, off
+    case blur, color, image, video, depth, off
     var id: String { rawValue }
     var label: String {
         switch self {
         case .blur: "Blur"
         case .color: "Color"
         case .image: "Image"
+        case .video: "Video"
         case .depth: "Depth"
         case .off: "Off"
         }
@@ -39,6 +40,7 @@ struct Params {
     var blur: Double = 24             // Gaussian sigma in pixels at 1280 px width
     var color: (r: Double, g: Double, b: Double) = (0, 0.69, 0.25)
     var image: CIImage? = nil         // background picture, any size
+    var video: VideoBackground? = nil // background video, read for each frame
     var sync = false                  // wait for each frame's depth instead of using the latest
     var follow = false                // keep measuring the cut-off from your face
 }
@@ -56,6 +58,7 @@ final class Settings: ObservableObject {
     @Published var blur: Double { didSet { save(blur, "blur") } }
     @Published var colorHex: String { didSet { save(colorHex, "colorHex") } }
     @Published var imagePath: String { didSet { save(imagePath, "imagePath") } }
+    @Published var videoPath: String { didSet { save(videoPath, "videoPath") } }
     @Published var modelSize: ModelSize { didSet { save(modelSize.rawValue, "modelSize") } }
     @Published var variant: ModelVariant { didSet { save(variant.rawValue, "variant") } }
     @Published var autoCutoffOnStart: Bool { didSet { save(autoCutoffOnStart, "autoCutoffOnStart") } }
@@ -67,17 +70,27 @@ final class Settings: ObservableObject {
         let d = UserDefaults.standard
         cameraID = d.string(forKey: "cameraID") ?? ""
         mode = BackgroundMode(rawValue: d.string(forKey: "mode") ?? "") ?? .blur
-        cutoff = d.object(forKey: "cutoff") as? Double ?? 1.5
-        softness = d.object(forKey: "softness") as? Double ?? 0.12
-        blur = d.object(forKey: "blur") as? Double ?? 24
+        cutoff = Self.number(d, "cutoff", 1.5)
+        softness = Self.number(d, "softness", 0.12)
+        blur = Self.number(d, "blur", 24)
         colorHex = d.string(forKey: "colorHex") ?? "00b140"
         imagePath = d.string(forKey: "imagePath") ?? ""
+        videoPath = d.string(forKey: "videoPath") ?? ""
         modelSize = ModelSize(rawValue: d.string(forKey: "modelSize") ?? "") ?? .w640
         variant = ModelVariant(rawValue: d.string(forKey: "variant") ?? "") ?? .small
-        autoCutoffOnStart = d.object(forKey: "autoCutoffOnStart") as? Bool ?? true
-        followFace = d.object(forKey: "followFace") as? Bool ?? false
-        syncMask = d.object(forKey: "syncMask") as? Bool ?? false
-        mirrorPreview = d.object(forKey: "mirrorPreview") as? Bool ?? true
+        autoCutoffOnStart = Self.flag(d, "autoCutoffOnStart", true)
+        followFace = Self.flag(d, "followFace", false)
+        syncMask = Self.flag(d, "syncMask", false)
+        mirrorPreview = Self.flag(d, "mirrorPreview", true)
+    }
+
+    /// Stored value, or a launch argument such as `-cutoff 1.2` / `-followFace YES`, or the default.
+    private static func number(_ d: UserDefaults, _ key: String, _ fallback: Double) -> Double {
+        d.object(forKey: key) == nil ? fallback : d.double(forKey: key)
+    }
+
+    private static func flag(_ d: UserDefaults, _ key: String, _ fallback: Bool) -> Bool {
+        d.object(forKey: key) == nil ? fallback : d.bool(forKey: key)
     }
 
     private func save(_ value: Any, _ key: String) {

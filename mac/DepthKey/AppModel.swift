@@ -16,6 +16,9 @@ final class AppModel: ObservableObject {
     @Published var modelProgress: Double?
     @Published var modelReady = false
     let stats = Stats()
+    let video = VideoBackground()
+    @Published var videoStatus: String?
+    @Published var videoStatusIsError = false
     @Published var virtualCameraConnected = false
     @Published var virtualCameraSize = ""
     @Published var effectsWarning: String?
@@ -61,6 +64,12 @@ final class AppModel: ObservableObject {
         }
         camera.onFrame = { [processor] buffer in processor.process(buffer) }
         settings.onChange = { [weak self] in self?.apply() }
+        video.onStatus = { [weak self] text, isError in
+            Task { @MainActor in
+                self?.videoStatus = text
+                self?.videoStatusIsError = isError
+            }
+        }
     }
 
     func start() {
@@ -138,6 +147,16 @@ final class AppModel: ObservableObject {
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    /// Plays the file where it is: videos are often large, so it isn't copied.
+    func chooseBackgroundVideo() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.movie]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        settings.videoPath = url.path
+        settings.mode = .video
     }
 
     func openCameraPrivacySettings() {
@@ -226,6 +245,9 @@ final class AppModel: ObservableObject {
         p.color = s.rgb
         p.image = backgroundImage(s.imagePath)
         p.sync = s.syncMask
+        video.load(s.videoPath)
+        if s.mode == .video { video.play() } else { video.pause() }
+        p.video = video
         p.follow = s.followFace
         processor.params = p
     }

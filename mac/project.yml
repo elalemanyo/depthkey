@@ -36,6 +36,9 @@ targets:
         NSCameraUsageDescription: DepthKey reads your camera to remove the background by distance.
         # No hand-gesture reactions (balloons, fireworks) in DepthKey's own capture.
         NSCameraReactionEffectGesturesEnabledDefault: false
+        # Background videos from plain http:// links and local network streams.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsForMedia: true
         NSHumanReadableCopyright: MIT License. Depth Pro 2 weights by Apple, non-commercial research use only.
     entitlements:
       path: DepthKey/DepthKey.entitlements

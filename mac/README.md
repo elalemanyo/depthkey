@@ -23,8 +23,17 @@ Needs Apple silicon, macOS 15+ and OBS 30+ (only for its virtual camera).
 
 - **Camera**: pick the camera by name. The OBS Virtual Camera is left out of the list, because
   reading it back would loop.
-- **Background**: Blur, Color (to key out in OBS with a Chroma Key filter), Image, Depth (red near,
-  dark blue far) or Off.
+- **Background**: Blur, Color (to key out in OBS with a Chroma Key filter), Image, Video, Depth
+  (red near, dark blue far) or Off.
+- **Video** loops without sound. Choose a file, or paste a link and press Return:
+  - a direct link to an `.mp4`, `.mov` or `.m3u8` (HLS) plays as is;
+  - a video page (YouTube, Vimeo and the other sites [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+    knows) is downloaded once in H.264 up to 1080p, then plays from
+    `~/Library/Application Support/DepthKey/Videos`. Needs `brew install yt-dlp`;
+  - a live stream (`rtsp://`, `rtmp://`, `srt://`, `udp://`) is decoded with ffmpeg and reconnects
+    when it drops. Needs `brew install ffmpeg`.
+
+  Use videos you have the right to use.
 - **Cut-off**: everything nearer stays. **Measure now** sets it to the depth of your face + 40 cm
   (the middle of the frame if it finds no face). **Follow my face** measures twice a second and
   eases the cut-off along as you lean in or back. Softness widens the transition.
@@ -37,7 +46,7 @@ Settings are kept between launches. Closing the window keeps DepthKey running in
 the call keeps its camera; quit from the menu bar icon or with ⌘Q. **Open at login** is under
 General.
 
-Shortcuts (Effect menu and the menu bar icon): ⌘1 Blur · ⌘2 Color · ⌘3 Image · ⌘4 Depth · ⌘0 Off ·
+Shortcuts (Effect menu and the menu bar icon): ⌘1 Blur · ⌘2 Color · ⌘3 Image · ⌘4 Video · ⌘5 Depth · ⌘0 Off ·
 ⌘− / ⌘= cut-off 5 cm nearer / farther · ⌘R measure · ⌘F follow my face.
 
 In the calling app, choose **OBS Virtual Camera** as the camera. Turn off that app's own

@@ -110,7 +110,10 @@ final class Processor {
             }
         }
 
-        let (depth, params) = lock.withLock { (_depth, _params) }  // cut-off may have just been measured
+        var (depth, params) = lock.withLock { (_depth, _params) }  // cut-off may have just been measured
+        if params.mode == .video {
+            params.image = params.video?.currentFrame()
+        }
         let size = virtualCamera.isConnected ? virtualCamera.dimensions : CMVideoDimensions(width: 1920, height: 1080)
         guard let output = makeBuffer(size) else { return }
         let image = Compositor.compose(frame: frame, depth: depth, params: params,
