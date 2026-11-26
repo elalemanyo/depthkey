@@ -1,6 +1,6 @@
 <img src="app/static/favicon.svg" width="64" height="64" alt="">
 
-# depthkey
+# DepthKey
 
 Webcam background removal by **depth** instead of a green screen or person segmentation:
 everything nearer than a cut-off distance stays, the rest is blurred, replaced or keyed out.
@@ -21,6 +21,10 @@ Two ways to run it:
 
 DepthKey, a native app for Apple silicon and macOS 15+. Pick the camera, background and cut-off
 in its window; it sends the result to the OBS Virtual Camera (OBS 30+ installed).
+
+<img src="docs/screenshot.png" width="1000" alt="DepthKey in Depth view: a table runs from orange in the foreground to blue in the back, where two people stand">
+
+<sub>Depth view of a still photo (red near, blue far). Photo: [Crew on Unsplash](https://commons.wikimedia.org/wiki/File:Couple_working_at_home_(Unsplash).jpg), CC0.</sub>
 
 ```bash
 mac/build.sh run

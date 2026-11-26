@@ -33,6 +33,7 @@ final class AppModel: ObservableObject {
     private var activity: NSObjectProtocol?
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
+    private var testFeed: DispatchSourceTimer?
 
     init() {
         processor = Processor(queue: camera.queue, preview: preview)
@@ -73,7 +74,13 @@ final class AppModel: ObservableObject {
         }
         refreshCameras()
         apply()
-        requestCameraAccess()
+        // `open DepthKey.app --args -DepthKeyTestImage photo.jpg` shows a still image instead of the
+        // camera (for screenshots and testing). Settings can be overridden the same way: `-mode depth`.
+        if let path = UserDefaults.standard.string(forKey: "DepthKeyTestImage"), startTestImage(path) {
+            // no camera
+        } else {
+            requestCameraAccess()
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
@@ -138,6 +145,30 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: -
+
+    /// Feeds `path` to the processor 30 times a second, like a camera that never moves.
+    private func startTestImage(_ path: String) -> Bool {
+        guard let image = CIImage(contentsOf: URL(fileURLWithPath: path), options: [.applyOrientationProperty: true])
+        else { return false }
+        let s = min(1, 1920 / image.extent.width)
+        let scaled = image.transformed(by: CGAffineTransform(scaleX: s, y: s))
+        let w = Int(scaled.extent.width) & ~1, h = Int(scaled.extent.height) & ~1
+        var buffer: CVPixelBuffer?
+        let attributes: [CFString: Any] = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary]
+        CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_32BGRA, attributes as CFDictionary, &buffer)
+        guard let buffer else { return false }
+        CIContext().render(scaled.transformed(by: CGAffineTransform(translationX: -scaled.extent.minX, y: -scaled.extent.minY)),
+                           to: buffer, bounds: CGRect(x: 0, y: 0, width: w, height: h),
+                           colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+        let processor = self.processor
+        processor.resetModel(autoCutoff: settings.autoCutoffOnStart)
+        let timer = DispatchSource.makeTimerSource(queue: camera.queue)
+        timer.schedule(deadline: .now(), repeating: 1.0 / 30)
+        timer.setEventHandler { processor.process(buffer) }
+        timer.resume()
+        testFeed = timer
+        return true
+    }
 
     private func requestCameraAccess() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {

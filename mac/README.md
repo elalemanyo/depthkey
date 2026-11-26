@@ -6,6 +6,8 @@ Zoom, Google Meet, Slack, Teams or OBS then use that as a normal camera.
 
 Needs Apple silicon, macOS 15+ and OBS 30+ (only for its virtual camera).
 
+<img src="../docs/screenshot.png" width="1000" alt="DepthKey in Depth view: a table runs from orange in the foreground to blue in the back, where two people stand">
+
 ## Install
 
 1. Install OBS once: `brew install --cask obs`. Open OBS, click **Start Virtual Camera** (allow
@@ -66,6 +68,13 @@ Needs Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew ins
 ./build.sh run      # build and open
 ./build.sh dmg      # also build/DepthKey.dmg
 SIGN_IDENTITY="Apple Development" ./build.sh run   # sign with your certificate
+```
+
+To try it without a camera (or to take screenshots), feed it a still image; settings can be
+overridden for that run the same way:
+
+```bash
+open build/DepthKey.app --args -DepthKeyTestImage photo.jpg -mode depth -mirrorPreview '<false/>'
 ```
 
 With the ad-hoc signature, macOS asks for camera access again after every rebuild. Signing with
