@@ -89,6 +89,9 @@ struct ContentView: View {
                             .help("Depth of your face + 40 cm (the middle of the frame without a face)")
                     }
                     Divider()
+                    SwitchRow("Sharp edges", isOn: $settings.sharpEdges)
+                        .help("Shape the cut along the edges in the camera image (hair, fingers)")
+                    Divider()
                     SwitchRow("Measure on start", isOn: $settings.autoCutoffOnStart)
                     Divider()
                     SwitchRow("Follow my face", isOn: $settings.followFace)
@@ -156,6 +159,7 @@ struct ContentView: View {
         case .blur:
             Divider()
             SliderRow(title: "Strength", value: $settings.blur, range: 4...60, step: 1) { String(format: "%.0f", $0) }
+            lightWrapRow
         case .color:
             Divider()
             Row("Color") { ColorPicker("Color", selection: colorBinding, supportsOpacity: false).labelsHidden() }
@@ -166,12 +170,22 @@ struct ContentView: View {
                     .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 Button("Choose…") { model.chooseBackgroundImage() }
             }
+            lightWrapRow
         case .video:
             Divider()
             VideoSourceRow(model: model, settings: settings)
+            lightWrapRow
         case .depth, .off:
             EmptyView()
         }
+    }
+
+    @ViewBuilder private var lightWrapRow: some View {
+        Divider()
+        SliderRow(title: "Light wrap", value: $settings.lightWrap, range: 0...1, step: 0.05) {
+            $0 == 0 ? "Off" : String(format: "%.0f%%", $0 * 100)
+        }
+        .help("Lets the background's light spill softly over your outline, so you blend into the scene")
     }
 
     @ViewBuilder private var backgroundFooter: some View {

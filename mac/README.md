@@ -34,9 +34,14 @@ Needs Apple silicon, macOS 15+ and OBS 30+ (only for its virtual camera).
     when it drops. Needs `brew install ffmpeg`.
 
   Use videos you have the right to use.
+- **Light wrap** (Blur, Image, Video): the background's light spills softly over your outline, so
+  you look like part of the scene instead of pasted on top. Off for Color, where it would spoil a
+  chroma key.
 - **Cut-off**: everything nearer stays. **Measure now** sets it to the depth of your face + 40 cm
   (the middle of the frame if it finds no face). **Follow my face** measures twice a second and
-  eases the cut-off along as you lean in or back. Softness widens the transition.
+  eases the cut-off along as you lean in or back. Softness widens the transition. **Sharp edges**
+  shapes the cut along the edges in the camera image (hair, fingers) instead of the blockier
+  depth map.
 - **Model**: Small is the default. Base is sharper and about 4× slower. A larger input gives
   sharper edges at a slower speed. The video runs at the camera's 30 fps with the latest depth,
   so the mask can trail a fast move slightly. **Keep video and mask in sync** makes each frame

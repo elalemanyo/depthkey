@@ -249,6 +249,8 @@ final class AppModel: ObservableObject {
         if s.mode == .video { video.play() } else { video.pause() }
         p.video = video
         p.follow = s.followFace
+        p.sharpEdges = s.sharpEdges
+        p.lightWrap = s.lightWrap
         processor.params = p
     }
 

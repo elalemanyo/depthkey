@@ -11,8 +11,10 @@ cd "$(dirname "$0")"
 command -v xcodegen >/dev/null || { echo "Needs XcodeGen: brew install xcodegen" >&2; exit 1; }
 xcodegen generate --quiet
 
+# VERSION=1.2.3 overrides the version in project.yml (the release workflow sets it from the tag).
 xcodebuild -project DepthKey.xcodeproj -scheme DepthKey -configuration Release \
-  -destination 'generic/platform=macOS' -derivedDataPath build/DerivedData -quiet build
+  -destination 'generic/platform=macOS' -derivedDataPath build/DerivedData -quiet \
+  ${VERSION:+MARKETING_VERSION=$VERSION} build
 
 rm -rf build/DepthKey.app
 cp -R build/DerivedData/Build/Products/Release/DepthKey.app build/

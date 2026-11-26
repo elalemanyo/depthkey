@@ -22,10 +22,34 @@ enum Compositor {
             let a = (top - depth.meters[i]) / soft  // inf depth gives -inf, so 0
             alpha[i] = a >= 1 ? 255 : (a > 0 ? UInt8(a * 255) : 0)
         }
-        let mask = CIImage(bitmapData: Data(alpha), bytesPerRow: depth.width,
-                           size: CGSize(width: depth.width, height: depth.height), format: .L8, colorSpace: nil)
-            .samplingLinear().transformed(by: toOutput)
-            .clampedToExtent().applyingGaussianBlur(sigma: 1.5 * size.width / 1280).cropped(to: rect)
+        let small = CIImage(bitmapData: Data(alpha), bytesPerRow: depth.width,
+                            size: CGSize(width: depth.width, height: depth.height), format: .L8, colorSpace: nil)
+        let k = size.width / 1920  // filter sizes are tuned at 1080p
+        let mask: CIImage
+        if p.sharpEdges {
+            // Scale the mask up, then refine it with a guided filter steered by the camera image,
+            // so the cut follows real edges (hair, fingers) instead of the blocky low-res depth.
+            // Fed the small mask directly, the filter leaves ghosts of the room in the background; a
+            // light blur first keeps it from sharpening the upscaled pixels into stair-steps.
+            // It writes its result to the red channel; copy that to green and blue, which the blend reads.
+            let red = CIVector(x: 1, y: 0, z: 0, w: 0)
+            mask = small.samplingLinear().transformed(by: toOutput)
+                .clampedToExtent().applyingGaussianBlur(sigma: 2 * k).cropped(to: rect)
+                .applyingFilter("CIGuidedFilter", parameters: [
+                    "inputGuideImage": camera,
+                    "inputRadius": 8 * k,
+                    "inputEpsilon": 0.004,
+                ])
+                .applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": red, "inputGVector": red, "inputBVector": red,
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+                ])
+                .applyingFilter("CIColorClamp")
+                .cropped(to: rect)
+        } else {
+            mask = small.samplingLinear().transformed(by: toOutput)
+                .clampedToExtent().applyingGaussianBlur(sigma: 2.25 * k).cropped(to: rect)
+        }
 
         let blurred = { camera.clampedToExtent().applyingGaussianBlur(sigma: p.blur * size.width / 1280).cropped(to: rect) }
         let background: CIImage
@@ -41,10 +65,31 @@ enum Compositor {
         case .depth, .off:
             return camera
         }
-        return camera.applyingFilter("CIBlendWithMask", parameters: [
+        let composite = camera.applyingFilter("CIBlendWithMask", parameters: [
             kCIInputBackgroundImageKey: background,
             kCIInputMaskImageKey: mask,
         ])
+        guard p.lightWrap > 0, p.mode != .color else { return composite }  // a wrap would spoil a chroma key
+
+        // Light wrap: the background's light spills a little over your outline, so you sit in the
+        // scene instead of on top of it. Spill = how much background is nearby, inside the foreground.
+        let r = 16 * k
+        let nearBackground = mask.applyingFilter("CIColorInvert")
+            .clampedToExtent().applyingGaussianBlur(sigma: r).cropped(to: rect)
+        let a = CGFloat(min(1, p.lightWrap * 1.6))
+        let spill = nearBackground
+            .applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: mask])
+            .applyingFilter("CIColorMatrix", parameters: [
+                "inputRVector": CIVector(x: a, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: a, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0, y: 0, z: a, w: 0),
+            ])
+        // Screen, not mix: the scene's light can only brighten your edges with its color; mixing
+        // its blurred image in made the edges look out of focus.
+        let glow = background.clampedToExtent().applyingGaussianBlur(sigma: r).cropped(to: rect)
+            .applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: spill])
+        return glow.applyingFilter("CIScreenBlendMode", parameters: [kCIInputBackgroundImageKey: composite])
+            .cropped(to: rect)
     }
 
     private static func aspectFill(_ image: CIImage, _ rect: CGRect) -> CIImage {

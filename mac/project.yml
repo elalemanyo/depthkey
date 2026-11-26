@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.0.1"
     CURRENT_PROJECT_VERSION: "1"
     ARCHS: arm64              # Apple silicon only: Core ML on the GPU, Float16
     # Ad-hoc signature, so anyone can build without an Apple team. build.sh can sign with a real

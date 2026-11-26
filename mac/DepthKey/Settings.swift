@@ -43,6 +43,8 @@ struct Params {
     var video: VideoBackground? = nil // background video, read for each frame
     var sync = false                  // wait for each frame's depth instead of using the latest
     var follow = false                // keep measuring the cut-off from your face
+    var sharpEdges = true             // upsample the mask guided by the camera image
+    var lightWrap = 0.35              // 0...1, background light spilling over your outline
 }
 
 /// User settings, saved in UserDefaults as they change.
@@ -65,6 +67,8 @@ final class Settings: ObservableObject {
     @Published var followFace: Bool { didSet { save(followFace, "followFace") } }
     @Published var syncMask: Bool { didSet { save(syncMask, "syncMask") } }
     @Published var mirrorPreview: Bool { didSet { save(mirrorPreview, "mirrorPreview") } }
+    @Published var sharpEdges: Bool { didSet { save(sharpEdges, "sharpEdges") } }
+    @Published var lightWrap: Double { didSet { save(lightWrap, "lightWrap") } }
 
     init() {
         let d = UserDefaults.standard
@@ -82,6 +86,8 @@ final class Settings: ObservableObject {
         followFace = Self.flag(d, "followFace", false)
         syncMask = Self.flag(d, "syncMask", false)
         mirrorPreview = Self.flag(d, "mirrorPreview", true)
+        sharpEdges = Self.flag(d, "sharpEdges", true)
+        lightWrap = Self.number(d, "lightWrap", 0.35)
     }
 
     /// Stored value, or a launch argument such as `-cutoff 1.2` / `-followFace YES`, or the default.

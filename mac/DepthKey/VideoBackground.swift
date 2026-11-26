@@ -160,9 +160,8 @@ final class VideoBackground: @unchecked Sendable {
         let generation = self.generation
         var path: String?
         var lastError = ""
-        weak let owner = self
-        let lines = { (handle: FileHandle) in
-            handle.readabilityHandler = { h in
+        let lines = { [weak self] (handle: FileHandle) in
+            handle.readabilityHandler = { [weak self] h in
                 let data = h.availableData
                 guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
                 for line in text.split(whereSeparator: \.isNewline).map(String.init) {
@@ -171,8 +170,8 @@ final class VideoBackground: @unchecked Sendable {
                     else if let r = line.range(of: #"\d+(\.\d+)?%"#, options: .regularExpression), line.contains("[download]") {
                         let percent = String(line[r])
                         DispatchQueue.main.async {
-                            guard owner?.generation == generation else { return }
-                            owner?.status("Downloading the video… \(percent)")
+                            guard self?.generation == generation else { return }
+                            self?.status("Downloading the video… \(percent)")
                         }
                     }
                 }
