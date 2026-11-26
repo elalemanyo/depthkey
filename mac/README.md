@@ -1,59 +1,85 @@
-# depthkey: Mac virtual camera (Apple silicon)
+# DepthKey for Mac (Apple silicon)
 
-Runs Depth Pro 2 on the Mac GPU (Core ML), keeps everything nearer than a cut-off distance,
-replaces the background and sends the result to the **OBS Virtual Camera**, which you then add in
-OBS as a normal camera.
+A native macOS app. It runs Depth Pro 2 on the Mac GPU (Core ML), keeps everything nearer than a
+cut-off distance, replaces the background, and sends the result to the **OBS Virtual Camera**.
+Zoom, Google Meet, Slack, Teams or OBS then use that as a normal camera.
 
-Needs Apple silicon, macOS 15+, OBS 30+ and [uv](https://docs.astral.sh/uv/).
-(No Docker here: Docker on macOS can reach neither the GPU nor the camera.)
+Needs Apple silicon, macOS 15+ and OBS 30+ (only for its virtual camera).
 
-## One-time setup
+## Install
 
-```bash
-brew install uv
-brew install --cask obs
-```
+1. Install OBS once: `brew install --cask obs`. Open OBS, click **Start Virtual Camera** (allow
+   the camera extension if macOS asks: System Settings › General › Login Items & Extensions ›
+   Camera Extensions), click **Stop Virtual Camera** and quit OBS.
+2. Open `DepthKey.dmg` and drag DepthKey to Applications.
+3. DepthKey is not notarized. The first time you open it, macOS blocks it: go to **System Settings ›
+   Privacy & Security**, click **Open Anyway** next to DepthKey and confirm.
+4. Allow the camera. On first start DepthKey downloads the models from Hugging Face (~150 MB,
+   once) and compiles them for the GPU.
 
-1. Open OBS, click **Start Virtual Camera**. If macOS asks, allow the camera extension
-   (System Settings › General › Login Items & Extensions › Camera Extensions). Click **Stop Virtual Camera**.
-2. Clone this repo, or just copy `depthcam.py`.
+## Use
 
-## Run
+- **Camera**: pick the camera by name. The OBS Virtual Camera is left out of the list, because
+  reading it back would loop.
+- **Background**: Blur, Color (to key out in OBS with a Chroma Key filter), Image, Depth (red near,
+  dark blue far) or Off.
+- **Cut-off**: everything nearer stays. **Measure now** sets it to the depth of your face + 40 cm
+  (the middle of the frame if it finds no face). **Follow my face** measures twice a second and
+  eases the cut-off along as you lean in or back. Softness widens the transition.
+- **Model**: Small is the default. Base is sharper and about 4× slower. A larger input gives
+  sharper edges at a slower speed. The video runs at the camera's 30 fps with the latest depth,
+  so the mask can trail a fast move slightly. **Keep video and mask in sync** makes each frame
+  wait for its own depth instead, at the model's speed. The preview shows the fps and model time.
 
-```bash
-uv run depthcam.py                       # blurred background
-uv run depthcam.py --background color    # green screen
-uv run depthcam.py --background image --bg-image office.jpg
-uv run depthcam.py --size 854x480        # sharper edges, a bit slower
-```
+Settings are kept between launches. Closing the window keeps DepthKey running in the menu bar, so
+the call keeps its camera; quit from the menu bar icon or with ⌘Q. **Open at login** is under
+General.
 
-The first run installs the dependencies and downloads the models (~150 MB). macOS asks to let
-your terminal use the camera: allow it, then start again.
+Shortcuts (Effect menu and the menu bar icon): ⌘1 Blur · ⌘2 Color · ⌘3 Image · ⌘4 Depth · ⌘0 Off ·
+⌘− / ⌘= cut-off 5 cm nearer / farther · ⌘R measure · ⌘F follow my face.
 
-Wait about a second for the auto cut-off. Keys in the preview window:
-`+`/`-` cut-off ±5 cm · `a` auto again · `[`/`]` edge softness · `b` next background · `q` quit.
+In the calling app, choose **OBS Virtual Camera** as the camera. Turn off that app's own
+background blur, and don't start OBS's own virtual camera while DepthKey is running (there is only
+one). If DepthKey shows a macOS Portrait or Background effect warning, turn it off for DepthKey in
+Control Center › Video Effects.
 
-## In OBS
+## Speed
 
-- **Sources › + › Video Capture Device › Device: OBS Virtual Camera.**
-- With `--background color`: right-click the source › **Filters › + Chroma Key** for a transparent background.
-- Don't click OBS's own **Start Virtual Camera** while `depthcam.py` runs: there is only one virtual camera.
+Apple's numbers for Small at window 4 on an M4 Max GPU:
 
-## Speed (Apple's numbers for S, window 4, M4 Max GPU)
-
-| `--size` | model time |
+| Input | Model time |
 |---|---|
-| 640x360 (default) | 13 ms |
-| 854x480 | 26 ms |
-| 896x512 | 30 ms |
-| 1280x720 | 88 ms |
+| 640 × 360 (default) | 13 ms |
+| 854 × 480 | 26 ms |
+| 896 × 512 | 30 ms |
+| 1280 × 720 | 88 ms |
 
-Slower chips (M1/M2) take longer. The terminal prints fps and model time every 2 s.
+Older chips are slower: an M1 Pro takes about 50 ms at 640 × 360, so the mask updates about 20 times a second while the video stays at 30 fps. The GPU beats the Neural
+Engine for this model.
 
-## Options
+## Build
 
-`--camera N` (another camera index) · `--cutoff 1.2` (fixed, in meters) · `--softness 0.12` ·
-`--bg-color 00b140` · `--model depthpro2-b` (sharper, slower) · `--no-preview` · `--no-vcam` ·
-`--backend torch` (PyTorch fallback, needs `depth_pro_2` installed).
+Needs Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+
+```bash
+./build.sh          # build/DepthKey.app (ad-hoc signed)
+./build.sh run      # build and open
+./build.sh dmg      # also build/DepthKey.dmg
+SIGN_IDENTITY="Apple Development" ./build.sh run   # sign with your certificate
+```
+
+With the ad-hoc signature, macOS asks for camera access again after every rebuild. Signing with
+your own certificate avoids that. To work in Xcode, run `xcodegen generate` and open
+`DepthKey.xcodeproj`. The project is generated from `project.yml` and is not committed.
+
+The models are stored in `~/Library/Application Support/DepthKey/Models`. Delete that folder to
+download them again.
+
+## Why OBS's virtual camera
+
+A virtual camera of DepthKey's own would be a Core Media I/O camera extension. macOS only loads
+one signed with a paid Apple Developer Program team, and users cannot approve an unsigned one the
+way they can an unsigned app. Until then, DepthKey feeds OBS's camera extension through its sink
+stream, as OBS itself does.
 
 The model weights are licensed for non-commercial research use only.

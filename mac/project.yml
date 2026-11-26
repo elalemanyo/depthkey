@@ -1,0 +1,48 @@
+# XcodeGen spec: `xcodegen generate` writes DepthKey.xcodeproj (not committed). See README.md.
+name: DepthKey
+options:
+  bundleIdPrefix: com.elalemanyo
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ARCHS: arm64              # Apple silicon only: Core ML on the GPU, Float16
+    # Ad-hoc signature, so anyone can build without an Apple team. build.sh can sign with a real
+    # identity instead (SIGN_IDENTITY), which keeps the camera permission across rebuilds.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+targets:
+  DepthKey:
+    type: application
+    platform: macOS
+    sources:
+      - path: DepthKey
+    info:
+      path: DepthKey/Info.plist
+      properties:
+        CFBundleName: DepthKey
+        CFBundleDisplayName: DepthKey
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.video
+        NSCameraUsageDescription: DepthKey reads your camera to remove the background by distance.
+        # No hand-gesture reactions (balloons, fireworks) in DepthKey's own capture.
+        NSCameraReactionEffectGesturesEnabledDefault: false
+        NSHumanReadableCopyright: MIT License. Depth Pro 2 weights by Apple, non-commercial research use only.
+    entitlements:
+      path: DepthKey/DepthKey.entitlements
+      properties:
+        com.apple.security.device.camera: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.elalemanyo.depthkey
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme: {}

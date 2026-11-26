@@ -14,18 +14,19 @@ Two ways to run it:
 
 | | Where the model runs | Speed | For |
 |---|---|---|---|
-| [**Mac virtual camera**](mac/) | Your Mac's GPU (Core ML) | real time | OBS, Zoom, any app that takes a camera |
+| [**Mac app**](mac/) | Your Mac's GPU (Core ML) | real time | Zoom, Meet, Slack, OBS, any app that takes a camera |
 | [**Browser demo**](#browser-demo) | A Docker container (CPU) | ~3–5 fps | Trying it out |
 
-## Mac virtual camera
+## Mac app
 
-Apple silicon, macOS 15+, OBS 30+. Sends the result to the OBS Virtual Camera.
+DepthKey, a native app for Apple silicon and macOS 15+. Pick the camera, background and cut-off
+in its window; it sends the result to the OBS Virtual Camera (OBS 30+ installed).
 
 ```bash
-uv run mac/depthcam.py
+mac/build.sh run
 ```
 
-Setup and options: [`mac/README.md`](mac/README.md).
+Install, use and build: [`mac/README.md`](mac/README.md).
 
 ## Browser demo
 
