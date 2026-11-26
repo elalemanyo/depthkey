@@ -13,7 +13,8 @@ Needs Apple silicon, macOS 15+ and OBS 30+ (only for its virtual camera).
 1. Install OBS once: `brew install --cask obs`. Open OBS, click **Start Virtual Camera** (allow
    the camera extension if macOS asks: System Settings › General › Login Items & Extensions ›
    Camera Extensions), click **Stop Virtual Camera** and quit OBS.
-2. Open `DepthKey.dmg` and drag DepthKey to Applications.
+2. Download `DepthKey-x.y.z.dmg` from [Releases](https://github.com/elalemanyo/depthkey/releases/latest),
+   open it and drag DepthKey to Applications.
 3. DepthKey is not notarized. The first time you open it, macOS blocks it: go to **System Settings ›
    Privacy & Security**, click **Open Anyway** next to DepthKey and confirm.
 4. Allow the camera. On first start DepthKey downloads the models from Hugging Face (~150 MB,
@@ -83,6 +84,8 @@ Needs Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew ins
 ./build.sh dmg      # also build/DepthKey.dmg
 SIGN_IDENTITY="Apple Development" ./build.sh run   # sign with your certificate
 ```
+
+Releases: push a tag like `v0.0.2`. The Release workflow builds the DMG on GitHub and publishes it.
 
 To try it without a camera (or to take screenshots), feed it a still image; settings can be
 overridden for that run the same way:

@@ -26,6 +26,8 @@ in its window; it sends the result to the OBS Virtual Camera (OBS 30+ installed)
 
 <sub>Depth view of a still photo (red near, blue far). Photo: [Crew on Unsplash](https://commons.wikimedia.org/wiki/File:Couple_working_at_home_(Unsplash).jpg), CC0.</sub>
 
+Download the DMG from [Releases](https://github.com/elalemanyo/depthkey/releases/latest), or build it:
+
 ```bash
 mac/build.sh run
 ```
