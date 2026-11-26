@@ -1,0 +1,23 @@
+# DEVBox: serves the app at https://depthkey.devbox.test behind the devbox Caddy proxy.
+#   docker compose -f compose.devbox.yml up -d --build
+# Same project and service as compose.yml, so starting one replaces the other's container.
+name: depthkey
+
+services:
+  app:
+    build: .
+    environment:
+      MODEL: depthpro2-s
+      WINDOW: "2"
+      TORCH_THREADS: "8"
+    restart: unless-stopped
+    networks:
+      - devbox
+    labels:
+      caddy: depthkey.devbox.test
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 8000}}"
+
+networks:
+  devbox:
+    external: true

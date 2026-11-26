@@ -1,0 +1,14 @@
+# Browser demo: open http://localhost:8000
+#   docker compose up -d --build
+name: depthkey
+
+services:
+  app:
+    build: .
+    environment:
+      MODEL: depthpro2-s   # must match the weights baked in at build time
+      WINDOW: "2"          # frames the model attends to (current + previous); higher = steadier, slower
+      TORCH_THREADS: "8"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
