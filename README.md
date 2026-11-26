@@ -1,3 +1,5 @@
+<img src="app/static/favicon.svg" width="64" height="64" alt="">
+
 # depthkey
 
 Webcam background removal by **depth** instead of a green screen or person segmentation:
@@ -40,7 +42,9 @@ put it behind an HTTPS proxy (`compose.devbox.yml` is an example with Caddy).
 
 - **Auto** sets the cut-off to the depth in the middle of the frame + 40 cm.
 - **Model input width**: 256 ≈ 5 fps, 320 ≈ 3 fps on an 8-core CPU.
-- **Show the processed frame** keeps video and mask in sync; off gives smooth video with a lagging mask.
+- **Keep video and mask in sync** shows only processed frames; off gives smooth video with a lagging mask.
+- **Test image** tab: the depth of one photo or camera snapshot at up to 1536 px, colored like
+  Apple's `depth-pro-2` CLI (turbo: red near, dark blue far), with a download.
 
 Settings in `compose.yml`:
 

@@ -1,7 +1,10 @@
-"""Depth Pro 2 over a WebSocket: the browser sends JPEG frames, gets depth in millimeters back.
+"""depthkey server: Depth Pro 2 for the browser.
 
-Reply layout (little-endian): uint16 width, uint16 height, float32 inference ms,
-float32 focal length px, then width*height uint16 depth in mm (0 = unknown, 65535 = far).
+/ws          live: the browser sends JPEG frames, gets depth in millimeters back. Reply layout
+             (little-endian): uint16 width, uint16 height, float32 inference ms, float32 focal
+             length px, then width*height uint16 depth in mm (0 = unknown, 65535 = far).
+/api/depth   test mode: POST a photo, get its depth as a color PNG like Apple's CLI writes.
+/api/turbo   the colormap of those PNGs, for the live depth view.
 """
 
 import asyncio
@@ -15,11 +18,13 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from matplotlib import colormaps
 from PIL import Image
 
-from depth_pro_2 import create_model_and_transforms
+from depth_pro_2 import create_model_and_transforms, load_rgb
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("depthkey")
@@ -32,6 +37,10 @@ torch.set_num_threads(int(os.environ.get("TORCH_THREADS", os.cpu_count() or 4)))
 model, transform = create_model_and_transforms(MODEL)
 log.info("Loaded %s on %s, window %d", MODEL, next(model.parameters()).device, WINDOW)
 
+# Apple's CLI colors inverse depth with turbo, from 0 (infinitely far) to the nearest point + 20%.
+TURBO = (colormaps["turbo"](np.linspace(0, 1, 256))[:, :3] * 255).astype(np.uint8)
+COLOR_HEADROOM = 0.2
+
 # One model, many tabs: run one inference at a time.
 lock = threading.Lock()
 STATIC = Path(__file__).parent / "static"
@@ -42,6 +51,14 @@ app = FastAPI()
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse(STATIC / "favicon-32.png")
+
+
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
 @app.get("/health")
@@ -96,3 +113,55 @@ async def ws(socket: WebSocket):
                 await socket.send_bytes(reply)
     except WebSocketDisconnect:
         pass
+
+
+@app.get("/api/turbo")
+def turbo():
+    return TURBO.tolist()
+
+
+def depth_photo(data: bytes, max_side: int) -> tuple[bytes, dict[str, str]]:
+    """Depth of one photo at up to ``max_side`` pixels, colored as Apple's CLI does."""
+    try:
+        image, f_px = load_rgb(io.BytesIO(data))  # upright per EXIF, focal length from EXIF
+    except Exception as e:
+        raise HTTPException(400, f"Not an image: {e}")
+    h, w = image.shape[:2]
+    scale = min(1.0, max_side / max(h, w))
+    if scale < 1:
+        w, h = round(w * scale), round(h * scale)
+        image = np.asarray(Image.fromarray(image).resize((w, h), Image.LANCZOS))
+        f_px = f_px * scale if f_px else None
+    focal_source = "EXIF" if f_px else "estimated"
+
+    start = time.perf_counter()
+    with lock:
+        p = model.infer(transform(image), f_px=f_px)
+    ms = (time.perf_counter() - start) * 1000
+
+    focal = float(p["focallength_px"])
+    inverse = p["inverse_depth"].float().cpu().numpy() * (w / focal)  # 1/m, 0 = infinitely far
+    high = float(inverse.max())
+    color_scale = high * (1 + COLOR_HEADROOM) if high > 0 else 1.0
+    colored = TURBO[np.clip(inverse * (256 / color_scale), 0, 255).astype(np.int32)]
+    near, far = np.percentile(inverse[inverse > 0], [95, 5]) if (inverse > 0).any() else (0, 0)
+
+    buf = io.BytesIO()
+    Image.fromarray(colored).save(buf, "PNG", compress_level=1)
+    headers = {
+        "X-Size": f"{w}x{h}",
+        "X-Infer-Ms": f"{ms:.0f}",
+        "X-Focal-Px": f"{focal:.0f}",
+        "X-Focal-Source": focal_source,
+        "X-Depth-Range": f"{1 / near:.2f}-{1 / far:.2f}" if near and far else "",
+    }
+    return buf.getvalue(), headers
+
+
+@app.post("/api/depth")
+async def depth(request: Request, max_side: int = 1024):
+    data = await request.body()
+    if not data:
+        raise HTTPException(400, "Send the image as the request body.")
+    png, headers = await asyncio.to_thread(depth_photo, data, min(max(max_side, 256), 2048))
+    return Response(png, media_type="image/png", headers=headers)

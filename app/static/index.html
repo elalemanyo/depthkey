@@ -4,100 +4,229 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>depthkey</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/basecoat-css@1.3.0/dist/basecoat.cdn.min.css">
+<script src="https://cdn.jsdelivr.net/npm/basecoat-css@1.3.0/dist/js/basecoat.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/basecoat-css@1.3.0/dist/js/range.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/basecoat-css@1.3.0/dist/js/tabs.min.js" defer></script>
+<script>
+  // Basecoat's dark theme hangs off the .dark class; follow the system setting.
+  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const applyTheme = () => document.documentElement.classList.toggle("dark", dark.matches);
+  applyTheme(); dark.addEventListener("change", applyTheme);
+</script>
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #f4f4f2; --panel: #ffffff; --text: #1c1c1a; --muted: #6b6b66;
-    --line: #dcdcd6; --accent: #2f6fde; --check-a: #e6e6e1; --check-b: #f7f7f4;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #141413; --panel: #1f1f1d; --text: #ececE8; --muted: #9a9a93;
-      --line: #34342f; --accent: #6b9cff; --check-a: #2a2a27; --check-b: #222220; }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px;
-    padding: 16px; min-height: 100vh; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
-  .stage { display: grid; place-items: center; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 300px; }
-  #out { max-width: 100%; max-height: calc(100vh - 34px); display: block;
-    background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 24px 24px; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+  /* The page is one viewport tall: header, then the active panel fills the rest. */
+  .app { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; gap: 0; }
+  /* The header is Basecoat's .tabs root (its tablist must be a direct child); panels are found by id. */
+  .topbar { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); }
+  .topbar img { width: 28px; height: 28px; }
+  .topbar h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; }
+  .topbar .badge { margin-left: auto; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 16px;
+    min-height: 0; height: 100%; box-sizing: border-box; }
+  .workspace[hidden] { display: none; }
+  .workspace > .card { min-height: 0; }
+  .stage { display: grid; place-items: center; padding: 0; overflow: hidden; }
+  .controls { overflow-y: auto; }
+  #out { display: block; max-width: 100%; max-height: 100%;
+    background: repeating-conic-gradient(var(--muted) 0 25%, var(--background) 0 50%) 0 0 / 24px 24px; }
   #out.mirror { transform: scaleX(-1); }
-  .stage p { color: var(--muted); padding: 24px; text-align: center; }
-  aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 16px; display: flex; flex-direction: column; gap: 14px; align-self: start; }
-  h1 { font-size: 16px; margin: 0; }
-  label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
-  label > span { display: flex; justify-content: space-between; }
-  label b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; color: var(--muted-foreground); padding: 32px; max-width: 420px; }
+  .empty img { width: 56px; height: 56px; margin-bottom: 12px; }
+  .controls section { display: grid; gap: 20px; }
   .row { display: flex; gap: 8px; align-items: center; }
-  .check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
-  input[type=range] { width: 100%; accent-color: var(--accent); }
-  select, button, input[type=color] { font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
-  button.primary { background: var(--accent); color: #fff; border-color: transparent; }
-  button { cursor: pointer; }
-  .stats { font: 12px/1.6 ui-monospace, monospace; color: var(--muted);
-    border-top: 1px solid var(--line); padding-top: 10px; }
-  .hidden { display: none !important; }
+  .controls select { width: 100%; }
+  .row > select { flex: 1; min-width: 0; }
+  .row > .btn { flex: 1; }
+  .value { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+  .label-row { display: flex; align-items: baseline; }
+  .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; width: 100%;
+    font: 12px/1.6 var(--font-mono); color: var(--muted-foreground); }
+  .stats dd { margin: 0; text-align: right; color: var(--foreground); font-variant-numeric: tabular-nums; }
+  /* Test image: photo and depth side by side, each scaled to fit. */
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; width: 100%; height: 100%;
+    box-sizing: border-box; min-height: 0; }
+  .pair.depth-only { grid-template-columns: 1fr; }
+  .pair.depth-only figure:first-child { display: none; }
+  .pair figure { margin: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 6px; min-height: 0; }
+  .pair img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+  .pair figcaption { font-size: 12px; color: var(--muted-foreground); text-align: center; }
+  .legend { display: grid; gap: 4px; font-size: 12px; color: var(--muted-foreground); }
+  .legend .bar { height: 10px; border-radius: 999px; }
+  .legend .ends { display: flex; justify-content: space-between; }
+  .busy { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in oklab, var(--background) 60%, transparent); }
+  .test-stage { position: relative; }
+  .is-hidden { display: none !important; }
+  @media (max-width: 860px) {
+    .app { height: auto; min-height: 100dvh; }
+    .workspace { grid-template-columns: 1fr; height: auto; }
+    .stage { min-height: 50vh; }
+    #out { max-height: 70vh; }
+    .pair { grid-template-columns: 1fr; }
+    .controls { overflow: visible; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <div class="stage">
-    <canvas id="out" class="hidden mirror"></canvas>
-    <p id="hint">Press <b>Start camera</b>. Depth Pro 2 runs on the server; the page keeps
-      everything nearer than the cut-off distance.</p>
+<div class="app">
+<header class="topbar tabs">
+  <img src="/static/favicon.svg" alt="">
+  <h1>depthkey</h1>
+  <nav role="tablist" aria-orientation="horizontal">
+    <button type="button" role="tab" id="tab-live" aria-controls="panel-live" aria-selected="true" tabindex="0">Live camera</button>
+    <button type="button" role="tab" id="tab-test" aria-controls="panel-test" aria-selected="false" tabindex="-1">Test image</button>
+  </nav>
+  <span id="status" class="badge" data-variant="outline">Not connected</span>
+</header>
+
+<main role="tabpanel" id="panel-live" aria-labelledby="tab-live" class="workspace">
+  <div class="card stage">
+    <canvas id="out" class="is-hidden mirror"></canvas>
+    <div id="hint" class="empty">
+      <img src="/static/favicon.svg" alt="">
+      <p>Start the camera. Depth Pro 2 estimates how far away every pixel is, and everything
+        nearer than the cut-off distance stays.</p>
+      <button id="start" type="button" class="btn">Start camera</button>
+    </div>
   </div>
 
-  <aside>
-    <h1>depthkey</h1>
-    <div class="row">
-      <button id="start" class="primary">Start camera</button>
-      <select id="camera" class="hidden" aria-label="Camera"></select>
-    </div>
+  <div class="card controls">
+    <header>
+      <h2>Controls</h2>
+      <p>Background removal by distance</p>
+    </header>
+    <section>
+      <div role="group" class="field is-hidden" id="cameraField">
+        <label for="camera">Camera</label>
+        <select id="camera" class="select"></select>
+      </div>
 
-    <label>
-      <span>Cut-off distance <b id="thrVal"></b></span>
-      <input id="thr" type="range" min="0.3" max="5" step="0.05" value="1.4">
-    </label>
-    <button id="auto">Auto: subject in the center + 40 cm</button>
+      <div role="group" class="field">
+        <div class="label-row"><label for="thr">Cut-off distance</label><span class="value" id="thrVal"></span></div>
+        <input id="thr" type="range" class="input" min="0.3" max="5" step="0.05" value="1.4">
+        <button id="auto" type="button" class="btn" data-variant="outline" data-size="sm">Auto: subject in the center + 40 cm</button>
+      </div>
 
-    <label>
-      <span>Edge softness <b id="softVal"></b></span>
-      <input id="soft" type="range" min="0.01" max="0.5" step="0.01" value="0.12">
-    </label>
+      <div role="group" class="field">
+        <div class="label-row"><label for="soft">Edge softness</label><span class="value" id="softVal"></span></div>
+        <input id="soft" type="range" class="input" min="0.01" max="0.5" step="0.01" value="0.12">
+      </div>
 
-    <label>Background
-      <select id="bgMode">
-        <option value="blur">Blur</option>
-        <option value="color">Color (chroma key for OBS)</option>
-        <option value="image">Image…</option>
-        <option value="none">Transparent</option>
-        <option value="depth">Show depth map</option>
-      </select>
-    </label>
-    <div class="row">
-      <input id="bgColor" type="color" value="#00b140" class="hidden" aria-label="Background color">
-      <input id="bgFile" type="file" accept="image/*" class="hidden">
-    </div>
+      <div role="group" class="field">
+        <label for="bgMode">Background</label>
+        <div class="row">
+          <select id="bgMode" class="select">
+            <option value="blur">Blur</option>
+            <option value="color">Color (chroma key)</option>
+            <option value="image">Image…</option>
+            <option value="none">Transparent</option>
+            <option value="depth">Show depth map</option>
+          </select>
+          <input id="bgColor" type="color" value="#00b140" class="input is-hidden" aria-label="Background color" style="width: 44px; padding: 2px">
+        </div>
+        <input id="bgFile" type="file" accept="image/*" class="input is-hidden">
+      </div>
 
-    <label>Model input width (smaller = faster)
-      <select id="inWidth">
-        <option>256</option><option selected>320</option><option>384</option>
-        <option>512</option><option>640</option>
-      </select>
-    </label>
+      <div role="group" class="field">
+        <label for="inWidth">Model input width</label>
+        <select id="inWidth" class="select">
+          <option>256</option><option selected>320</option><option>384</option>
+          <option>512</option><option>640</option>
+        </select>
+        <p>Smaller is faster.</p>
+      </div>
 
-    <label class="check"><input id="aligned" type="checkbox" checked>
-      Show the processed frame (mask lines up, lower fps)</label>
-    <label class="check"><input id="mirror" type="checkbox" checked> Mirror</label>
-
-    <div class="stats" id="stats">not connected</div>
-  </aside>
+      <div role="group" class="field" data-orientation="horizontal">
+        <input id="aligned" type="checkbox" role="switch" class="input" checked>
+        <label for="aligned">Keep video and mask in sync</label>
+      </div>
+      <div role="group" class="field" data-orientation="horizontal">
+        <input id="mirror" type="checkbox" role="switch" class="input" checked>
+        <label for="mirror">Mirror</label>
+      </div>
+    </section>
+    <footer>
+      <dl class="stats">
+        <dt>depth fps</dt><dd id="sFps">–</dd>
+        <dt>model</dt><dd id="sMs">–</dd>
+        <dt>round trip</dt><dd id="sRtt">–</dd>
+        <dt>depth size</dt><dd id="sSize">–</dd>
+        <dt>focal</dt><dd id="sFocal">–</dd>
+      </dl>
+    </footer>
+  </div>
 </main>
+
+<main role="tabpanel" id="panel-test" aria-labelledby="tab-test" class="workspace" hidden>
+  <div class="card stage test-stage">
+    <div id="testEmpty" class="empty">
+      <img src="/static/favicon.svg" alt="">
+      <p>Choose a photo, or take a snapshot with the camera, to see the depth Depth Pro 2
+        estimates for every pixel, colored like Apple's own tool: red is near, dark blue is far.</p>
+    </div>
+    <div id="pair" class="pair is-hidden">
+      <figure><img id="testInput" alt="Input photo"><figcaption>Input</figcaption></figure>
+      <figure><img id="testDepth" alt="Depth map"><figcaption>Depth</figcaption></figure>
+    </div>
+    <div id="testBusy" class="busy is-hidden"><span class="badge" data-variant="secondary">Estimating depth…</span></div>
+  </div>
+
+  <div class="card controls">
+    <header>
+      <h2>Test image</h2>
+      <p>Depth of a single photo at higher detail</p>
+    </header>
+    <section>
+      <div role="group" class="field">
+        <label for="testFile">Photo</label>
+        <input id="testFile" type="file" accept="image/*" class="input">
+      </div>
+      <button id="snapshot" type="button" class="btn" data-variant="outline">Take a camera snapshot</button>
+
+      <div role="group" class="field">
+        <label for="testSize">Detail (longest side)</label>
+        <select id="testSize" class="select">
+          <option value="512">512 px · ~2 s</option>
+          <option value="1024" selected>1024 px · ~4 s</option>
+          <option value="1536">1536 px · ~10 s</option>
+        </select>
+        <p>Times are for this server's CPU.</p>
+      </div>
+
+      <div role="group" class="field">
+        <label for="testLayout">Show</label>
+        <select id="testLayout" class="select">
+          <option value="pair">Photo and depth</option>
+          <option value="depth">Depth only</option>
+        </select>
+      </div>
+
+      <div class="legend">
+        <div class="bar" id="legendBar"></div>
+        <div class="ends"><span>far</span><span>near</span></div>
+      </div>
+
+      <div class="row">
+        <button id="testRun" type="button" class="btn" disabled>Run again</button>
+        <a id="testDownload" class="btn" data-variant="outline" download="depth.png" aria-disabled="true">Download</a>
+      </div>
+    </section>
+    <footer>
+      <dl class="stats">
+        <dt>size</dt><dd id="tSize">–</dd>
+        <dt>model</dt><dd id="tMs">–</dd>
+        <dt>focal</dt><dd id="tFocal">–</dd>
+        <dt>depth range</dt><dd id="tRange">–</dd>
+      </dl>
+    </footer>
+  </div>
+</main>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -109,8 +238,13 @@ const video = document.createElement("video");
 video.muted = true; video.playsInline = true;
 
 let ws, inFlight = false, sentAt = 0, pendingFrame = null, shownFrame = null;
-let depth = null, dw = 0, dh = 0, bgImage = null, autoOnce = true;
-let stats = { ms: 0, rtt: 0, f: 0, n: 0, t0: performance.now(), fps: 0 };
+let depth = null, dw = 0, dh = 0, bgImage = null, autoOnce = true, turbo = null, depthScale = 0;
+let stats = { ms: 0, rtt: 0, f: 0, n: 0, t0: performance.now() };
+
+function setStatus(text, variant) {
+  const s = $("status"); s.textContent = text;
+  if (variant) s.dataset.variant = variant; else delete s.dataset.variant;
+}
 
 // ---- controls -------------------------------------------------------------
 const thr = $("thr"), soft = $("soft");
@@ -122,8 +256,8 @@ thr.oninput = soft.oninput = () => { showValues(); buildMask(); };
 showValues();
 $("mirror").onchange = (e) => out.classList.toggle("mirror", e.target.checked);
 $("bgMode").onchange = (e) => {
-  $("bgColor").classList.toggle("hidden", e.target.value !== "color");
-  $("bgFile").classList.toggle("hidden", e.target.value !== "image");
+  $("bgColor").classList.toggle("is-hidden", e.target.value !== "color");
+  $("bgFile").classList.toggle("is-hidden", e.target.value !== "image");
   if (e.target.value === "image" && !bgImage) $("bgFile").click();
   buildMask();
 };
@@ -144,14 +278,13 @@ async function startCamera(deviceId) {
   await video.play();
   out.width = fg.width = video.videoWidth;
   out.height = fg.height = video.videoHeight;
-  out.classList.remove("hidden"); $("hint").classList.add("hidden");
-  $("start").textContent = "Restart";
+  out.classList.remove("is-hidden"); $("hint").classList.add("is-hidden");
 
   const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
   const sel = $("camera");
   sel.innerHTML = cams.map((c, i) => `<option value="${c.deviceId}">${c.label || "Camera " + (i + 1)}</option>`).join("");
   sel.value = stream.getVideoTracks()[0].getSettings().deviceId;
-  sel.classList.toggle("hidden", cams.length < 2);
+  $("cameraField").classList.toggle("is-hidden", cams.length < 2);
   sel.onchange = () => startCamera(sel.value);
 
   autoOnce = true;
@@ -159,17 +292,18 @@ async function startCamera(deviceId) {
   connect();
 }
 $("start").onclick = () => startCamera().catch((e) => {
-  $("hint").textContent = "Camera error: " + e.message +
+  $("hint").querySelector("p").textContent = "Camera error: " + e.message +
     (window.isSecureContext ? "" : " (the camera needs https or localhost)");
 });
 
 // ---- server ---------------------------------------------------------------
 function connect() {
   if (ws && ws.readyState <= 1) return;
+  setStatus("Connecting…", "outline");
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
   ws.binaryType = "arraybuffer";
-  ws.onopen = () => { inFlight = false; sendFrame(); };
-  ws.onclose = () => { $("stats").textContent = "disconnected, retrying…"; setTimeout(connect, 1000); };
+  ws.onopen = () => { inFlight = false; setStatus("Live"); sendFrame(); };
+  ws.onclose = () => { setStatus("Disconnected, retrying…", "destructive"); setTimeout(connect, 1000); };
   ws.onmessage = (e) => {
     const view = new DataView(e.data);
     dw = view.getUint16(0, true); dh = view.getUint16(2, true);
@@ -209,20 +343,30 @@ function autoThreshold() {
   if (!vals.length) return;
   vals.sort((a, b) => a - b);
   thr.value = Math.min(5, vals[vals.length >> 1] / 1000 + 0.4);
-  showValues(); buildMask();
+  thr.dispatchEvent(new Event("input"));  // updates the label, the mask and Basecoat's slider fill
 }
 
 function buildMask() {
   if (!depth) return;
   if (mask.width !== dw || mask.height !== dh) { mask.width = dw; mask.height = dh; }
   const img = mctx.createImageData(dw, dh), px = img.data;
-  const showDepth = $("bgMode").value === "depth";
-  const t = thr.value * 1000, s = Math.max(1, soft.value * 1000), lo = Math.log(300), hi = Math.log(6000);
+  const showDepth = $("bgMode").value === "depth" && turbo;
+  const t = thr.value * 1000, s = Math.max(1, soft.value * 1000);
+  // Like Apple's CLI: turbo over inverse depth, from 0 (infinitely far) to the nearest point + 20%.
+  // The scale is smoothed over frames so the colors don't flicker.
+  let k = 0;
+  if (showDepth) {
+    let nearest = 65535;
+    for (let i = 0; i < depth.length; i++) if (depth[i] > 0 && depth[i] < nearest) nearest = depth[i];
+    const target = (1000 / nearest) * 1.2;
+    depthScale = depthScale ? 0.9 * depthScale + 0.1 * target : target;
+    k = 256 / depthScale;
+  }
   for (let i = 0; i < depth.length; i++) {
     const d = depth[i], j = i * 4;
-    if (showDepth) {  // near = bright warm, far = dark blue; log scale 0.3–6 m
-      const v = d ? 1 - Math.min(1, Math.max(0, (Math.log(d) - lo) / (hi - lo))) : 0;
-      px[j] = 255 * v; px[j + 1] = 180 * v * v; px[j + 2] = 80 + 120 * (1 - v); px[j + 3] = 255;
+    if (showDepth) {
+      const c = d === 0 || d === 65535 ? 0 : Math.min(255, Math.floor((1000 / d) * k)) * 3;
+      px[j] = turbo[c]; px[j + 1] = turbo[c + 1]; px[j + 2] = turbo[c + 2]; px[j + 3] = 255;
     } else {
       const a = d === 0 ? 0 : (t + s / 2 - d) / s;
       px[j + 3] = 255 * Math.min(1, Math.max(0, a));
@@ -248,7 +392,8 @@ function render() {
 
   octx.clearRect(0, 0, W, H);
   if (mode === "blur") {
-    octx.filter = "blur(18px)"; octx.drawImage(frame, 0, 0, W, H); octx.filter = "none";
+    // Oversized so the blur does not pull transparent pixels in at the edges.
+    octx.filter = "blur(18px)"; octx.drawImage(frame, -40, -40, W + 80, H + 80); octx.filter = "none";
   } else if (mode === "color") {
     octx.fillStyle = $("bgColor").value; octx.fillRect(0, 0, W, H);
   } else if (mode === "image" && bgImage) {
@@ -268,13 +413,85 @@ requestAnimationFrame(render);
 
 setInterval(() => {
   const now = performance.now();
-  stats.fps = (stats.n * 1000) / (now - stats.t0); stats.n = 0; stats.t0 = now;
-  if (ws?.readyState === 1 && depth)
-    $("stats").innerHTML =
-      `depth fps   ${stats.fps.toFixed(1)}<br>model       ${stats.ms.toFixed(0)} ms<br>` +
-      `round trip  ${stats.rtt.toFixed(0)} ms<br>depth size  ${dw}×${dh}<br>` +
-      `focal       ${stats.f ? stats.f.toFixed(0) + " px" : "–"}`;
+  const fps = (stats.n * 1000) / (now - stats.t0); stats.n = 0; stats.t0 = now;
+  if (ws?.readyState !== 1 || !depth) return;
+  $("sFps").textContent = fps.toFixed(1);
+  $("sMs").textContent = stats.ms.toFixed(0) + " ms";
+  $("sRtt").textContent = stats.rtt.toFixed(0) + " ms";
+  $("sSize").textContent = `${dw}×${dh}`;
+  $("sFocal").textContent = stats.f ? stats.f.toFixed(0) + " px" : "–";
 }, 1000);
+
+// ---- colormap -------------------------------------------------------------
+fetch("/api/turbo").then((r) => r.json()).then((lut) => {
+  turbo = new Uint8Array(lut.flat());
+  const stops = lut.filter((_, i) => i % 32 === 0 || i === 255).map((c) => `rgb(${c})`);
+  $("legendBar").style.background = `linear-gradient(to right, ${stops.join(",")})`;
+});
+
+// ---- test image -----------------------------------------------------------
+let testBlob = null;
+
+async function runTest() {
+  if (!testBlob) return;
+  $("testBusy").classList.remove("is-hidden");
+  $("testRun").disabled = true;
+  try {
+    const res = await fetch(`/api/depth?max_side=${$("testSize").value}`, { method: "POST", body: testBlob });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    const url = URL.createObjectURL(await res.blob());
+    URL.revokeObjectURL($("testDepth").src);
+    $("testDepth").src = url;
+    $("testDownload").href = url; $("testDownload").removeAttribute("aria-disabled");
+    const h = (n) => res.headers.get(n);
+    $("tSize").textContent = h("X-Size").replace("x", "×");
+    $("tMs").textContent = h("X-Infer-Ms") + " ms";
+    $("tFocal").textContent = `${h("X-Focal-Px")} px (${h("X-Focal-Source")})`;
+    const range = h("X-Depth-Range");
+    $("tRange").textContent = range ? range.replace("-", "–") + " m" : "–";
+    $("testEmpty").classList.add("is-hidden"); $("pair").classList.remove("is-hidden");
+  } catch (e) {
+    $("testEmpty").classList.remove("is-hidden"); $("pair").classList.add("is-hidden");
+    $("testEmpty").querySelector("p").textContent = "Could not estimate depth: " + e.message;
+  } finally {
+    $("testBusy").classList.add("is-hidden");
+    $("testRun").disabled = !testBlob;
+  }
+}
+
+function setTestImage(blob) {
+  testBlob = blob;
+  URL.revokeObjectURL($("testInput").src);
+  $("testInput").src = URL.createObjectURL(blob);
+  runTest();
+}
+
+$("testFile").onchange = (e) => { if (e.target.files[0]) setTestImage(e.target.files[0]); };
+$("testRun").onclick = runTest;
+$("testSize").onchange = runTest;
+$("testLayout").onchange = (e) => $("pair").classList.toggle("depth-only", e.target.value === "depth");
+
+$("snapshot").onclick = async () => {
+  // Reuse the live camera if it runs; otherwise open it just for this frame.
+  const live = video.srcObject;
+  const cam = live ? null : document.createElement("video");
+  try {
+    if (cam) {
+      cam.muted = true; cam.playsInline = true;
+      cam.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      await cam.play();
+      await new Promise((r) => setTimeout(r, 400));  // let exposure settle
+    }
+    const src = cam || video, c = document.createElement("canvas");
+    c.width = src.videoWidth; c.height = src.videoHeight;
+    c.getContext("2d").drawImage(src, 0, 0);
+    c.toBlob((blob) => setTestImage(blob), "image/jpeg", 0.95);
+  } catch (e) {
+    $("testEmpty").querySelector("p").textContent = "Camera error: " + e.message;
+  } finally {
+    cam?.srcObject?.getTracks().forEach((t) => t.stop());
+  }
+};
 </script>
 </body>
 </html>
