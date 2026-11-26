@@ -56,7 +56,8 @@ Settings in `compose.yml`:
 
 ## License
 
-This repository contains only glue code; it is not affiliated with Apple. The Depth Pro 2 code and
-weights are downloaded at build or run time and are under Apple's licenses: the
+The code in this repository is under the [MIT License](LICENSE). It is not affiliated with Apple.
+The Depth Pro 2 code and weights are downloaded at build or run time and are under Apple's
+licenses: the
 [weights](https://github.com/apple-aiml-research/ml-depth-pro-2/blob/main/LICENSE_MODEL) are for
 non-commercial research use only.
